@@ -1,17 +1,17 @@
-import requests
 import pandas as pd
+from datetime import date
 
-def main():
-    # Test URL (samo za proveru)
-    url = "https://www.mozzartbet.com/sr/rezultati"
-    try:
-        r = requests.get(url)
-        if r.status_code == 200:
-            print("Mozzart sajt dostupan")
-        else:
-            print("Problem sa sajtom:", r.status_code)
-    except Exception as e:
-        print("Greska:", e)
+# testni podaci
+data = {
+    "Tim 1": ["Partizan", "Crvena Zvezda"],
+    "Tim 2": ["Vojvodina", "Radnicki"],
+    "Golovi 1": [2, 1],
+    "Golovi 2": [1, 3]
+}
 
-if __name__ == "__main__":
-    main()
+df = pd.DataFrame(data)
+
+# sačuvaj Excel sa današnjim datumom
+df.to_excel(f"rezultati_{date.today()}.xlsx", index=False)
+
+print("Excel fajl je uspešno napravljen.")
