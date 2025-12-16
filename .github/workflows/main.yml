@@ -1,5 +1,8 @@
 name: Mozzart Scraper
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
 
@@ -8,8 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,11 +28,9 @@ jobs:
         run: python mozzart_scraper.py
 
       - name: Commit results
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           git add *.xlsx || true
           git commit -m "Auto update results" || true
-          git push https://x-access-token:$GH_TOKEN@github.com/MarkoPetr/MozzartScraper.git HEAD:main
+          git push
