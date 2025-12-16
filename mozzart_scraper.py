@@ -1,36 +1,76 @@
 from playwright.sync_api import sync_playwright
+import pandas as pd
+from datetime import datetime, timedelta
 
-MOZZART_URL = "https://www.mozzartbet.com/sr/rezultati?events=finished"
+OUTPUT_FILE = "sofascore_live.xlsx"
 
-def inspect_match_blocks():
+# URL sa završnim mečevima prethodnog dana
+def get_mozzart_url_previous_day():
+    yesterday = datetime.now() - timedelta(days=1)
+    date_str = yesterday.strftime("%Y-%m-%d")
+    # Mozzart koristi query parametre za datum i filter finished
+    return f"https://www.mozzartbet.com/sr/rezultati?date={date_str}&events=finished"
+
+def scrape_finished_matches():
+    matches = []
+    url = get_mozzart_url_previous_day()
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(MOZZART_URL, timeout=60000)
-        page.wait_for_timeout(5000)  # čekamo JS učitavanje
+        page.goto(url, timeout=60000)
+        page.wait_for_timeout(5000)  # čekamo da se JS sadržaj učita
 
-        # Probaj da uhvatimo sve blokove mečeva
-        match_blocks = page.locator("div")  # generalno uzimamo sve div-ove, kasnije ćemo filtrirati
-        count = match_blocks.count()
-        print(f"Pronađeno ukupno div-ova na stranici: {count}")
+        # Selektujemo sve blokove mečeva
+        match_blocks = page.locator("div.event-row")  # generalno blok meča
+        total_blocks = match_blocks.count()
+        print(f"Pronađeno blokova mečeva: {total_blocks}")
 
-        # Iteriramo prvih 20 div-ova za pregled
-        for i in range(min(count, 20)):
+        for i in range(total_blocks):
             block = match_blocks.nth(i)
-            print(f"\n=== BLOCK {i} ===")
-            # Ispisujemo sve direktne decu elemente
-            children = block.locator("*")
-            children_count = children.count()
-            print(f"Broj child elemenata: {children_count}")
-            for j in range(children_count):
-                child = children.nth(j)
-                tag = child.evaluate("el => el.tagName")
-                class_name = child.get_attribute("class")
-                text = child.text_content().strip()
-                if text:  # prikazujemo samo elemente sa tekstom
-                    print(f"{tag} | class='{class_name}' | text='{text}'")
+
+            # Dohvat svih <div> elemenata unutar bloka
+            divs = block.locator("div")
+            div_count = divs.count()
+
+            # Moramo dohvatiti timove i golove po poziciji
+            try:
+                # Pretpostavljamo: prva dva div-a sa tekstom su timovi
+                home_team = None
+                away_team = None
+                home_goals = None
+                away_goals = None
+
+                # Tražimo prvi div sa tekstom koji nije prazan
+                text_divs = [divs.nth(j).text_content().strip() for j in range(div_count) if divs.nth(j).text_content().strip()]
+                if len(text_divs) >= 4:
+                    home_team = text_divs[0]
+                    away_team = text_divs[1]
+                    home_goals = int(text_divs[2])
+                    away_goals = int(text_divs[3])
+
+                    matches.append({
+                        "home_team": home_team,
+                        "away_team": away_team,
+                        "home_goals": home_goals,
+                        "away_goals": away_goals,
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+            except Exception as e:
+                print(f"Greška kod bloka {i}: {e}")
+                continue
 
         browser.close()
+    return matches
+
+def save_to_excel(matches):
+    if not matches:
+        print("Nema novih završenih mečeva za upis.")
+        return
+    df = pd.DataFrame(matches)
+    df.to_excel(OUTPUT_FILE, index=False)
+    print(f"Sačuvano {len(matches)} mečeva u {OUTPUT_FILE}")
 
 if __name__ == "__main__":
-    inspect_match_blocks()
+    finished_matches = scrape_finished_matches()
+    save_to_excel(finished_matches)
