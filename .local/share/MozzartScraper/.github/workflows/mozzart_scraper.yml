@@ -1,0 +1,29 @@
+name: Mozzart Scraper Workflow
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # pokreće svaki dan u 09:00
+  push:
+    branches:
+      - main
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pandas openpyxl
+
+      - name: Run Mozzart scraper
+        run: |
+          python mozzart_scraper.py
