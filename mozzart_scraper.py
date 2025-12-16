@@ -12,15 +12,8 @@ def main():
 
         page.wait_for_timeout(3000)
 
-        match = page.locator("div.match-row").first
-
-        home = match.locator(".home-team").inner_text()
-        away = match.locator(".away-team").inner_text()
-        score = match.locator(".final-score").inner_text()
-
-        print("DOMACIN:", home)
-        print("GOST:", away)
-        print("REZULTAT:", score)
+        html = page.content()
+        print(html[:5000])  # ispisujemo samo prvih 5000 karaktera
 
         browser.close()
 
