@@ -1,17 +1,15 @@
-import pandas as pd
-from datetime import date
+from playwright.sync_api import sync_playwright
 
-# testni podaci
-data = {
-    "Tim 1": ["Partizan", "Crvena Zvezda"],
-    "Tim 2": ["Vojvodina", "Radnicki"],
-    "Golovi 1": [2, 1],
-    "Golovi 2": [1, 3]
-}
+def main():
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
 
-df = pd.DataFrame(data)
+        page.goto("https://www.mozzartbet.com/sr/rezultati?events=finished", timeout=60000)
 
-# sačuvaj Excel sa današnjim datumom
-df.to_excel(f"rezultati_{date.today()}.xlsx", index=False)
+        print("PAGE TITLE:", page.title())
 
-print("Excel fajl je uspešno napravljen.")
+        browser.close()
+
+if __name__ == "__main__":
+    main()
