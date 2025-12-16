@@ -7,7 +7,6 @@ OUTPUT_FILE = "sofascore_live.xlsx"
 def get_mozzart_url_previous_day():
     yesterday = datetime.now() - timedelta(days=1)
     date_str = yesterday.strftime("%Y-%m-%d")
-    # Mozzart URL sa filterom završenih mečeva i datumom
     return f"https://www.mozzartbet.com/sr/rezultati?date={date_str}&events=finished"
 
 def scrape_finished_matches():
@@ -18,39 +17,39 @@ def scrape_finished_matches():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(url, timeout=60000)
-        page.wait_for_timeout(5000)  # čekamo učitavanje JS sadržaja
+        page.wait_for_timeout(5000)
 
-        # Dohvat svih div elemenata na stranici
-        all_divs = page.locator("div")
-        total_divs = all_divs.count()
-        print(f"Pronađeno ukupno div-ova: {total_divs}")
+        # Selektujemo sve roditeljske blokove mečeva
+        match_blocks = page.locator("div.event-row")  # probati sa stvarnom klasom za blok meča
+        total_blocks = match_blocks.count()
+        print(f"Pronađeno blokova mečeva: {total_blocks}")
 
-        # Pravilo: tražimo 4 uzastopna div-a sa tekstom: tim1, tim2, home_goals, away_goals
-        text_divs = []
-        for i in range(total_divs):
-            txt = all_divs.nth(i).text_content().strip()
-            if txt:
-                text_divs.append(txt)
+        for i in range(total_blocks):
+            block = match_blocks.nth(i)
 
-        i = 0
-        while i + 3 < len(text_divs):
-            home_team = text_divs[i]
-            away_team = text_divs[i + 1]
-            home_goals = text_divs[i + 2]
-            away_goals = text_divs[i + 3]
+            try:
+                # Unutar bloka dohvatiti sve div/span elemente sa tekstom
+                elements = block.locator("div, span")
+                text_elements = [elements.nth(j).text_content().strip() for j in range(elements.count()) if elements.nth(j).text_content().strip()]
 
-            # Proveravamo da li su golovi cifre
-            if home_goals.isdigit() and away_goals.isdigit():
-                matches.append({
-                    "home_team": home_team,
-                    "away_team": away_team,
-                    "home_goals": int(home_goals),
-                    "away_goals": int(away_goals),
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
-                i += 4  # preskakanje na sledeći blok
-            else:
-                i += 1  # pomeramo se za 1 ako nije validan blok
+                # Pravilo za fudbalski meč: najmanje 4 teksta, prva dva su timovi, sledeća dva su golovi
+                if len(text_elements) >= 4:
+                    home_team = text_elements[0]
+                    away_team = text_elements[1]
+                    home_goals = text_elements[2]
+                    away_goals = text_elements[3]
+
+                    if home_goals.isdigit() and away_goals.isdigit():
+                        matches.append({
+                            "home_team": home_team,
+                            "away_team": away_team,
+                            "home_goals": int(home_goals),
+                            "away_goals": int(away_goals),
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+            except Exception as e:
+                print(f"Greška kod bloka {i}: {e}")
+                continue
 
         browser.close()
     return matches
@@ -60,6 +59,8 @@ def save_to_excel(matches):
         print("Nema novih završenih mečeva za upis.")
         return
     df = pd.DataFrame(matches)
+    # Sortiranje po imenu domaćina radi preglednosti
+    df = df.sort_values(by=["home_team", "away_team"])
     df.to_excel(OUTPUT_FILE, index=False)
     print(f"Sačuvano {len(matches)} mečeva u {OUTPUT_FILE}")
 
