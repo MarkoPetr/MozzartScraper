@@ -8,7 +8,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -17,6 +18,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install pandas openpyxl playwright
           playwright install chromium
 
@@ -30,4 +32,4 @@ jobs:
           git config --global user.email "actions@github.com"
           git add *.xlsx || true
           git commit -m "Auto update results" || true
-          git push
+          git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/MarkoPetr/MozzartScraper.git HEAD:main
