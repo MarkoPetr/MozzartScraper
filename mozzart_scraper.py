@@ -10,10 +10,14 @@ def main():
             timeout=60000
         )
 
-        page.wait_for_timeout(3000)
+        # ČEKAMO da se pojavi BILO KOJI rezultat tipa 1:0, 2:1 itd
+        page.wait_for_selector("text=:", timeout=60000)
 
-        html = page.content()
-        print(html[:5000])  # ispisujemo samo prvih 5000 karaktera
+        # Uzmi prvi element koji sadrži :
+        score_element = page.locator("text=:").first
+        score_text = score_element.inner_text()
+
+        print("PRONAĐEN REZULTAT:", score_text)
 
         browser.close()
 
