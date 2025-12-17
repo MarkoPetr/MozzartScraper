@@ -1,4 +1,4 @@
-name: Mozzart Scraper Daily
+name: Mozzart Scraper
 
 on:
   schedule:
