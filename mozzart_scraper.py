@@ -5,6 +5,7 @@ import re
 
 URL = "https://www.mozzartbet.com/sr/rezultati?events=finished"
 
+
 def scrape_yesterday_finished():
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%d.%m.")
     results = []
@@ -16,44 +17,58 @@ def scrape_yesterday_finished():
         page.wait_for_timeout(5000)
 
         nodes = page.locator("body *")
-        count = nodes.count()
+        total = nodes.count()
 
         in_yesterday = False
         i = 0
 
-        while i < count:
-            text = nodes.nth(i).inner_text().strip()
+        def safe_text(idx):
+            try:
+                t = nodes.nth(idx).text_content()
+                return t.strip() if t else ""
+            except:
+                return ""
 
-            # DETEKTUJ DATUM
+        while i < total:
+            text = safe_text(i)
+
+            # DETEKCIJA DATUMA (npr. "16.12.")
             if re.match(r"\d{2}\.\d{2}\.", text):
                 if text.startswith(yesterday):
                     in_yesterday = True
                 elif in_yesterday:
-                    break  # izašli smo iz jučerašnjeg dana
+                    break  # izlazak iz jučerašnjeg bloka
 
-            # PARSIRAJ SAMO JUČERAŠNJE FT MEČEVE
+            # PARSIRANJE ZAVRŠENIH MEČEVA
             if in_yesterday and text == "FT":
-                try:
-                    time = nodes.nth(i+1).inner_text().strip()
-                    home = nodes.nth(i+2).inner_text().strip()
-                    away = nodes.nth(i+3).inner_text().strip()
+                time = safe_text(i + 1)
+                home = safe_text(i + 2)
+                away = safe_text(i + 3)
 
-                    ft_home = nodes.nth(i+4).inner_text().strip()
-                    ft_away = nodes.nth(i+5).inner_text().strip()
-                    ht_home = nodes.nth(i+6).inner_text().strip()
-                    ht_away = nodes.nth(i+7).inner_text().strip()
+                ft_home = safe_text(i + 4)
+                ft_away = safe_text(i + 5)
+                ht_home = safe_text(i + 6)
+                ht_away = safe_text(i + 7)
 
+                # VALIDACIJA (da ne uleti liga ili glup tekst)
+                if (
+                    home
+                    and away
+                    and ft_home.isdigit()
+                    and ft_away.isdigit()
+                    and ht_home.isdigit()
+                    and ht_away.isdigit()
+                ):
                     results.append({
                         "Home": home,
                         "Away": away,
                         "FT": f"{ft_home}:{ft_away}",
                         "HT": f"{ht_home}:{ht_away}",
-                        "Time": time
+                        "Time": time,
+                        "Date": yesterday
                     })
 
-                    i += 7
-                except:
-                    pass
+                i += 7
 
             i += 1
 
@@ -68,6 +83,6 @@ if __name__ == "__main__":
     if matches:
         df = pd.DataFrame(matches)
         df.to_excel("mozzart_yesterday_finished.xlsx", index=False)
-        print(f"JUČERAŠNJI MEČEVI: {len(df)} upisano u mozzart_yesterday_finished.xlsx")
+        print(f"JUČERAŠNJI ZAVRŠENI MEČEVI: {len(df)}")
     else:
         print("Nema jučerašnjih završenih mečeva.")
