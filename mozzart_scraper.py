@@ -8,66 +8,59 @@ URL = "https://www.mozzartbet.com/sr/rezultati?events=finished"
 def scrape_yesterday_finished():
     results = []
 
-    # jučerašnji datum u formatu 'dd.mm.'
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%d.%m.")
+    # Jučerašnji datum u formatu "16.12. "
+    yesterday_str = (datetime.now() - timedelta(days=1)).strftime("%d.%m. ")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(URL, timeout=60000)
-        page.wait_for_timeout(5000)
+        page.wait_for_timeout(5000)  # malo čekamo da se svi elementi učitaju
 
-        # uzimamo sve tekstove
-        nodes = page.locator("body *")
-        total = nodes.count()
+        # Selektujemo sve članke mečeva
+        match_articles = page.locator("article.match-item")
+        total_matches = match_articles.count()
 
-        def safe_text(i):
-            try:
-                t = nodes.nth(i).text_content()
-                return t.strip() if t else ""
-            except:
-                return ""
+        for i in range(total_matches):
+            article = match_articles.nth(i)
+            
+            # Datum meča
+            date_text = article.locator(".match-day").text_content()
+            if not date_text or not date_text.startswith(yesterday_str):
+                continue  # preskoči sve koji nisu juče
 
-        i = 0
-        in_target_day = False
+            # FT status
+            status = article.locator(".match-status").text_content()
+            if status != "FT":
+                continue  # samo završeni
 
-        while i < total:
-            text = safe_text(i)
+            # Vreme
+            time = article.locator(".match-time").text_content()
 
-            # pronalazimo jučerašnji datum
-            if re.match(r"\d{2}\.\d{2}\.", text):
-                if text.startswith(yesterday):
-                    in_target_day = True
-                else:
-                    if in_target_day:
-                        break  # izašli smo iz jučerašnjeg dana
-                    in_target_day = False
+            # Timovi
+            home = article.locator(".match-home").text_content()
+            away = article.locator(".match-away").text_content()
 
-            # završeni mečevi
-            if in_target_day and text == "FT":
-                time = safe_text(i + 1)
-                home = safe_text(i + 2)
-                away = safe_text(i + 3)
-                ft_home = safe_text(i + 4)
-                ft_away = safe_text(i + 5)
-                ht_home = safe_text(i + 6)
-                ht_away = safe_text(i + 7)
+            # Golovi
+            ft_home = article.locator(".match-score-fullhome").text_content()
+            ft_away = article.locator(".match-score-fullaway").text_content()
+            ht_home = article.locator(".match-score-halfhome").text_content()
+            ht_away = article.locator(".match-score-halfaway").text_content()
 
-                if all(x.isdigit() for x in [ft_home, ft_away, ht_home, ht_away]):
-                    results.append({
-                        "Date": yesterday,
-                        "Time": time,
-                        "Home": home,
-                        "Away": away,
-                        "FT": f"{ft_home}:{ft_away}",
-                        "HT": f"{ht_home}:{ht_away}"
-                    })
-                i += 7
-            i += 1
+            if home and away and ft_home.isdigit() and ft_away.isdigit():
+                results.append({
+                    "Date": date_text.strip(),
+                    "Time": time.strip(),
+                    "Home": home.strip(),
+                    "Away": away.strip(),
+                    "FT": f"{ft_home}:{ft_away}",
+                    "HT": f"{ht_home}:{ht_away}"
+                })
 
         browser.close()
 
     return results
+
 
 if __name__ == "__main__":
     matches = scrape_yesterday_finished()
