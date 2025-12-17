@@ -1,57 +1,73 @@
 from playwright.sync_api import sync_playwright
+import pandas as pd
 from datetime import datetime, timedelta
 import re
 
-OUT = "match_debug.txt"
+URL = "https://www.mozzartbet.com/sr/rezultati?events=finished"
 
-def url_yesterday():
-    d = datetime.now() - timedelta(days=1)
-    return f"https://www.mozzartbet.com/sr/rezultati?date={d.strftime('%Y-%m-%d')}&events=finished"
+def scrape_yesterday_finished():
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%d.%m.")
+    results = []
 
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
-    page = browser.new_page()
-    page.goto(url_yesterday(), timeout=60000)
-    page.wait_for_timeout(6000)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(URL, timeout=60000)
+        page.wait_for_timeout(5000)
 
-    divs = page.locator("div").all()
+        nodes = page.locator("body *")
+        count = nodes.count()
 
-    found = False
-    lines_out = []
+        in_yesterday = False
+        i = 0
 
-    for div in divs:
-        txt = div.inner_text().strip()
-        if not txt:
-            continue
+        while i < count:
+            text = nodes.nth(i).inner_text().strip()
 
-        # tražimo blok sa FT i bar 2 reda teksta
-        if "FT" in txt and "\n" in txt:
-            lines = [l.strip() for l in txt.split("\n") if l.strip()]
+            # DETEKTUJ DATUM
+            if re.match(r"\d{2}\.\d{2}\.", text):
+                if text.startswith(yesterday):
+                    in_yesterday = True
+                elif in_yesterday:
+                    break  # izašli smo iz jučerašnjeg dana
 
-            words = [l for l in lines if not l.isdigit() and not re.search(r"\d{2}:\d{2}", l)]
-            numbers = [l for l in lines if l.isdigit()]
+            # PARSIRAJ SAMO JUČERAŠNJE FT MEČEVE
+            if in_yesterday and text == "FT":
+                try:
+                    time = nodes.nth(i+1).inner_text().strip()
+                    home = nodes.nth(i+2).inner_text().strip()
+                    away = nodes.nth(i+3).inner_text().strip()
 
-            if len(words) >= 2 and len(numbers) >= 4:
-                lines_out.append("=== MATCH START ===")
-                for l in lines:
-                    if l.isdigit():
-                        lines_out.append(f"NUM  : {l}")
-                    else:
-                        lines_out.append(f"TEXT : {l}")
-                lines_out.append("=== MATCH END ===\n")
-                found = True
-                break  # SAMO PRVI MEČ
+                    ft_home = nodes.nth(i+4).inner_text().strip()
+                    ft_away = nodes.nth(i+5).inner_text().strip()
+                    ht_home = nodes.nth(i+6).inner_text().strip()
+                    ht_away = nodes.nth(i+7).inner_text().strip()
 
-    browser.close()
+                    results.append({
+                        "Home": home,
+                        "Away": away,
+                        "FT": f"{ft_home}:{ft_away}",
+                        "HT": f"{ht_home}:{ht_away}",
+                        "Time": time
+                    })
 
-with open(OUT, "w", encoding="utf-8") as f:
-    for l in lines_out:
-        f.write(l + "\n")
+                    i += 7
+                except:
+                    pass
 
-if found:
-    print("DEBUG MEČ SAČUVAN U match_debug.txt")
-else:
-    print("NIJEDAN MEČ NIJE NAĐEN")
-print("\n===== MATCH DEBUG FILE =====\n")
-with open("match_debug.txt", "r", encoding="utf-8") as f:
-    print(f.read())
+            i += 1
+
+        browser.close()
+
+    return results
+
+
+if __name__ == "__main__":
+    matches = scrape_yesterday_finished()
+
+    if matches:
+        df = pd.DataFrame(matches)
+        df.to_excel("mozzart_yesterday_finished.xlsx", index=False)
+        print(f"JUČERAŠNJI MEČEVI: {len(df)} upisano u mozzart_yesterday_finished.xlsx")
+    else:
+        print("Nema jučerašnjih završenih mečeva.")
