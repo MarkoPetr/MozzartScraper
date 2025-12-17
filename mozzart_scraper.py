@@ -52,3 +52,6 @@ if found:
     print("DEBUG MEČ SAČUVAN U match_debug.txt")
 else:
     print("NIJEDAN MEČ NIJE NAĐEN")
+print("\n===== MATCH DEBUG FILE =====\n")
+with open("match_debug.txt", "r", encoding="utf-8") as f:
+    print(f.read())
