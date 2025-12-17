@@ -13,7 +13,7 @@ def yesterday_prefix():
 
 def scrape_yesterday_finished():
     results = []
-    date_prefix = yesterday_prefix()
+    target_prefix = yesterday_prefix()
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -21,30 +21,37 @@ def scrape_yesterday_finished():
         page.goto(URL, timeout=60000)
         page.wait_for_timeout(5000)
 
-        # 1️⃣ Klik "Završeni"
+        # Cookie
+        try:
+            page.locator("text=Sačuvaj i zatvori").click(timeout=3000)
+        except:
+            pass
+
+        # Završeni
         page.locator("text=Završeni").first.click()
         page.wait_for_timeout(3000)
 
-        # 2️⃣ Scroll da bi se učitali dani
-        page.mouse.wheel(0, 3000)
-        page.wait_for_timeout(3000)
+        # 🔁 HORIZONTALNI KARUSEL – klik strelicu LEVO dok ne dođemo do juče
+        for _ in range(10):
+            active_date = page.locator(
+                "[class*=active], [class*=selected]"
+            ).first.text_content().strip()
 
-        # 3️⃣ Pronađi JUČERAŠNJI DATUM (npr. "16.12. utorak")
-        date_elements = page.locator(f"text=/^{date_prefix}.*$/")
+            print(f"DEBUG aktivni datum: {active_date}")
 
-        if date_elements.count() == 0:
-            print("❌ Jučerašnji datum NIJE pronađen na stranici")
+            if active_date.startswith(target_prefix):
+                print("✅ Pronađen jučerašnji datum")
+                break
+
+            # klik strelicu levo
+            page.locator("button:has-text('‹'), button:has-text('<')").first.click()
+            page.wait_for_timeout(2000)
+        else:
+            print("❌ Jučerašnji datum nije pronađen u karuselu")
             browser.close()
             return []
 
-        # klik na PRVI takav datum
-        date_text = date_elements.first.text_content().strip()
-        date_elements.first.click()
-        page.wait_for_timeout(4000)
-
-        print(f"✅ Otvoren datum: {date_text}")
-
-        # 4️⃣ Parsiranje – samo Fudbal, samo FT
+        # ⬇ Parsiranje
         nodes = page.locator("body *")
         total = nodes.count()
 
@@ -55,7 +62,6 @@ def scrape_yesterday_finished():
                 return ""
 
         i = 0
-        # preskoči sve do "Fudbal"
         while i < total:
             if txt(i) == "Fudbal":
                 i += 1
@@ -66,7 +72,7 @@ def scrape_yesterday_finished():
             t = txt(i)
 
             if re.match(r"\d{2}\.\d{2}\.", t):
-                break  # sledeći dan
+                break
 
             if t == "FT":
                 time_ = txt(i + 1)
@@ -79,7 +85,7 @@ def scrape_yesterday_finished():
 
                 if home and away and ft_h.isdigit() and ft_a.isdigit():
                     results.append({
-                        "Date": date_text,
+                        "Date": active_date,
                         "Time": time_,
                         "Home": home,
                         "Away": away,
