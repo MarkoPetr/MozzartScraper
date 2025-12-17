@@ -1,9 +1,9 @@
-name: Mozzart Scraper
-
-permissions:
-  contents: write
+name: Mozzart Scraper Daily
 
 on:
+  schedule:
+    # Svaki dan u 09:00 UTC (10:00 CET)
+    - cron: '0 9 * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,26 +11,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+    # 1. Checkout repozitorijuma
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+    # 2. Set up Python 3.11
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pandas openpyxl playwright
-          playwright install chromium
+    # 3. Instaliramo Python dependencies
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests pandas openpyxl
 
-      - name: Run scraper
-        run: python mozzart_scraper.py
+    # 4. Pokrećemo Mozzart scraper
+    - name: Run Mozzart scraper
+      run: python mozzart_scraper.py
 
-      - name: Commit results
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "actions@github.com"
-          git add *.xlsx || true
-          git commit -m "Auto update results" || true
-          git push
+    # 5. Uploadujemo Excel fajl kao artifact
+    - name: Upload results
+      uses: actions/upload-artifact@v3
+      with:
+        name: mozzart_finished_matches
+        path: mozzart_finished_last_days.xlsx
