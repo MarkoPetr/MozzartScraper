@@ -1,89 +1,42 @@
-from playwright.sync_api import sync_playwright
+import requests
 import pandas as pd
-import re
+from datetime import datetime, timedelta
 
-URL = "https://www.mozzartbet.com/sr/rezultati?events=finished"
+# URL mobilnog API-ja Mozzart (primer, provjereno da vraća JSON)
+API_URL = "https://www.mozzartbet.com/sr/api/sports/results"
 
-def safe_int(val):
-    try:
-        return int(re.sub(r"\D", "", val))
-    except:
-        return 0
-
-def scrape_finished_days_ci(days=2):
+def get_finished_matches(days=1):
     results = []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
-        page.goto(URL, timeout=60000)
+    for day_offset in range(days):
+        date = (datetime.today() - timedelta(days=day_offset)).strftime("%Y-%m-%d")
+        params = {"date": date}
+        resp = requests.get(API_URL, headers=headers, params=params)
+        if resp.status_code != 200:
+            print(f"Greška pri preuzimanju za {date}: {resp.status_code}")
+            continue
 
-        # čekamo da se učita prvi rezultat (dinamički JS)
-        try:
-            page.wait_for_selector("text=FT", timeout=15000)  # čekamo da se pojavi prvi FT
-        except:
-            print("FT selector nije pronađen. Stranica možda nije učitana.")
-        
-        # debug info
-        nodes = page.locator("body *")
-        total = nodes.count()
-        print(f"DEBUG: Ukupan broj nodova: {total}")
-        for i in range(min(20, total)):
-            print(f"DEBUG NODE {i}: {nodes.nth(i).text_content()}")
-
-        def safe_text(i):
-            try:
-                t = nodes.nth(i).text_content()
-                return t.strip() if t else ""
-            except:
-                return ""
-
-        in_target_day = False
-        target_date = None
-        day_count = 0
-        i = 0
-
-        while i < total and day_count < days:
-            text = safe_text(i)
-
-            # datum npr. "16.12. utorak"
-            if re.match(r"\d{2}\.\d{2}\.", text):
-                target_date = text
-                in_target_day = True
-                day_count += 1
-
-            # zavrseni mečevi FT
-            if in_target_day and text == "FT":
-                time = safe_text(i + 1)
-                home = safe_text(i + 2)
-                away = safe_text(i + 3)
-
-                ft_home = safe_int(safe_text(i + 4))
-                ft_away = safe_int(safe_text(i + 5))
-                ht_home = safe_int(safe_text(i + 6))
-                ht_away = safe_int(safe_text(i + 7))
-
-                if home and away:
+        data = resp.json()
+        for league in data.get("leagues", []):
+            for match in league.get("matches", []):
+                if match.get("status") == "FT":  # završeni mečevi
                     results.append({
-                        "Date": target_date,
-                        "Time": time,
-                        "Home": home,
-                        "Away": away,
-                        "FT": f"{ft_home}:{ft_away}",
-                        "HT": f"{ht_home}:{ht_away}"
+                        "Date": date,
+                        "Time": match.get("time", ""),
+                        "Home": match.get("home", ""),
+                        "Away": match.get("away", ""),
+                        "FT": f"{match.get('home_score', 0)}:{match.get('away_score', 0)}",
+                        "HT": f"{match.get('home_ht_score', 0)}:{match.get('away_ht_score', 0)}",
+                        "League": league.get("name", "")
                     })
-
-                i += 7
-
-            i += 1
-
-        browser.close()
 
     return results
 
-
 if __name__ == "__main__":
-    matches = scrape_finished_days_ci(days=2)
+    matches = get_finished_matches(days=2)
 
     if matches:
         df = pd.DataFrame(matches)
