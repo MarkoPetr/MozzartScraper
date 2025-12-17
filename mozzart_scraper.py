@@ -1,13 +1,11 @@
 from playwright.sync_api import sync_playwright
 import pandas as pd
-from datetime import datetime, timedelta
 import re
 
 URL = "https://www.mozzartbet.com/sr/rezultati?events=finished"
 
 
-def scrape_yesterday_finished():
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%d.%m.")
+def scrape_first_finished_day():
     results = []
 
     with sync_playwright() as p:
@@ -19,28 +17,30 @@ def scrape_yesterday_finished():
         nodes = page.locator("body *")
         total = nodes.count()
 
-        in_yesterday = False
-        i = 0
-
-        def safe_text(idx):
+        def safe_text(i):
             try:
-                t = nodes.nth(idx).text_content()
+                t = nodes.nth(i).text_content()
                 return t.strip() if t else ""
             except:
                 return ""
 
+        in_target_day = False
+        target_date = None
+        i = 0
+
         while i < total:
             text = safe_text(i)
 
-            # DETEKCIJA DATUMA (npr. "16.12.")
+            # PRVI DATUM (npr. "16.12. utorak")
             if re.match(r"\d{2}\.\d{2}\.", text):
-                if text.startswith(yesterday):
-                    in_yesterday = True
-                elif in_yesterday:
-                    break  # izlazak iz jučerašnjeg bloka
+                if not in_target_day:
+                    in_target_day = True
+                    target_date = text
+                else:
+                    break  # sledeći dan → STOP
 
-            # PARSIRANJE ZAVRŠENIH MEČEVA
-            if in_yesterday and text == "FT":
+            # SAMO ZAVRŠENI MEČEVI
+            if in_target_day and text == "FT":
                 time = safe_text(i + 1)
                 home = safe_text(i + 2)
                 away = safe_text(i + 3)
@@ -50,7 +50,6 @@ def scrape_yesterday_finished():
                 ht_home = safe_text(i + 6)
                 ht_away = safe_text(i + 7)
 
-                # VALIDACIJA (da ne uleti liga ili glup tekst)
                 if (
                     home
                     and away
@@ -60,12 +59,12 @@ def scrape_yesterday_finished():
                     and ht_away.isdigit()
                 ):
                     results.append({
+                        "Date": target_date,
                         "Home": home,
                         "Away": away,
                         "FT": f"{ft_home}:{ft_away}",
                         "HT": f"{ht_home}:{ht_away}",
-                        "Time": time,
-                        "Date": yesterday
+                        "Time": time
                     })
 
                 i += 7
@@ -78,11 +77,11 @@ def scrape_yesterday_finished():
 
 
 if __name__ == "__main__":
-    matches = scrape_yesterday_finished()
+    matches = scrape_first_finished_day()
 
     if matches:
         df = pd.DataFrame(matches)
-        df.to_excel("mozzart_yesterday_finished.xlsx", index=False)
-        print(f"JUČERAŠNJI ZAVRŠENI MEČEVI: {len(df)}")
+        df.to_excel("mozzart_finished_last_day.xlsx", index=False)
+        print(f"ZAVRŠENI MEČEVI ({len(df)}) SAČUVANI.")
     else:
-        print("Nema jučerašnjih završenih mečeva.")
+        print("Nema završenih mečeva.")
