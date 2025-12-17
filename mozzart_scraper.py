@@ -4,26 +4,32 @@ import re
 
 URL = "https://www.mozzartbet.com/sr/rezultati?events=finished"
 
-
 def safe_int(val):
-    """Pretvara tekst u int, vraća 0 ako nije moguće."""
     try:
         return int(re.sub(r"\D", "", val))
     except:
         return 0
 
-
-def scrape_finished_days(days=2):
+def scrape_finished_days_ci(days=2):
     results = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = browser.new_page()
         page.goto(URL, timeout=60000)
-        page.wait_for_timeout(5000)
 
+        # čekamo da se učita prvi rezultat (dinamički JS)
+        try:
+            page.wait_for_selector("text=FT", timeout=15000)  # čekamo da se pojavi prvi FT
+        except:
+            print("FT selector nije pronađen. Stranica možda nije učitana.")
+        
+        # debug info
         nodes = page.locator("body *")
         total = nodes.count()
+        print(f"DEBUG: Ukupan broj nodova: {total}")
+        for i in range(min(20, total)):
+            print(f"DEBUG NODE {i}: {nodes.nth(i).text_content()}")
 
         def safe_text(i):
             try:
@@ -40,18 +46,13 @@ def scrape_finished_days(days=2):
         while i < total and day_count < days:
             text = safe_text(i)
 
-            # Datum npr. "16.12. utorak"
+            # datum npr. "16.12. utorak"
             if re.match(r"\d{2}\.\d{2}\.", text):
-                if not in_target_day:
-                    in_target_day = True
-                    target_date = text
-                    day_count += 1
-                else:
-                    in_target_day = True
-                    target_date = text
-                    day_count += 1
+                target_date = text
+                in_target_day = True
+                day_count += 1
 
-            # Završeni mečevi FT
+            # zavrseni mečevi FT
             if in_target_day and text == "FT":
                 time = safe_text(i + 1)
                 home = safe_text(i + 2)
@@ -72,7 +73,7 @@ def scrape_finished_days(days=2):
                         "HT": f"{ht_home}:{ht_away}"
                     })
 
-                i += 7  # preskakanje parsiranih nodova
+                i += 7
 
             i += 1
 
@@ -82,7 +83,7 @@ def scrape_finished_days(days=2):
 
 
 if __name__ == "__main__":
-    matches = scrape_finished_days(days=2)
+    matches = scrape_finished_days_ci(days=2)
 
     if matches:
         df = pd.DataFrame(matches)
