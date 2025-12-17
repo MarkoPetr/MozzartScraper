@@ -5,7 +5,15 @@ import re
 URL = "https://www.mozzartbet.com/sr/rezultati?events=finished"
 
 
-def scrape_first_finished_day():
+def safe_int(val):
+    """Pretvara tekst u int, vraća 0 ako nije moguće."""
+    try:
+        return int(re.sub(r"\D", "", val))
+    except:
+        return 0
+
+
+def scrape_finished_days(days=2):
     results = []
 
     with sync_playwright() as p:
@@ -26,48 +34,45 @@ def scrape_first_finished_day():
 
         in_target_day = False
         target_date = None
+        day_count = 0
         i = 0
 
-        while i < total:
+        while i < total and day_count < days:
             text = safe_text(i)
 
-            # PRVI DATUM (npr. "16.12. utorak")
+            # Datum npr. "16.12. utorak"
             if re.match(r"\d{2}\.\d{2}\.", text):
                 if not in_target_day:
                     in_target_day = True
                     target_date = text
+                    day_count += 1
                 else:
-                    break  # sledeći dan → STOP
+                    in_target_day = True
+                    target_date = text
+                    day_count += 1
 
-            # SAMO ZAVRŠENI MEČEVI
+            # Završeni mečevi FT
             if in_target_day and text == "FT":
                 time = safe_text(i + 1)
                 home = safe_text(i + 2)
                 away = safe_text(i + 3)
 
-                ft_home = safe_text(i + 4)
-                ft_away = safe_text(i + 5)
-                ht_home = safe_text(i + 6)
-                ht_away = safe_text(i + 7)
+                ft_home = safe_int(safe_text(i + 4))
+                ft_away = safe_int(safe_text(i + 5))
+                ht_home = safe_int(safe_text(i + 6))
+                ht_away = safe_int(safe_text(i + 7))
 
-                if (
-                    home
-                    and away
-                    and ft_home.isdigit()
-                    and ft_away.isdigit()
-                    and ht_home.isdigit()
-                    and ht_away.isdigit()
-                ):
+                if home and away:
                     results.append({
                         "Date": target_date,
+                        "Time": time,
                         "Home": home,
                         "Away": away,
                         "FT": f"{ft_home}:{ft_away}",
-                        "HT": f"{ht_home}:{ht_away}",
-                        "Time": time
+                        "HT": f"{ht_home}:{ht_away}"
                     })
 
-                i += 7
+                i += 7  # preskakanje parsiranih nodova
 
             i += 1
 
@@ -77,11 +82,11 @@ def scrape_first_finished_day():
 
 
 if __name__ == "__main__":
-    matches = scrape_first_finished_day()
+    matches = scrape_finished_days(days=2)
 
     if matches:
         df = pd.DataFrame(matches)
-        df.to_excel("mozzart_finished_last_day.xlsx", index=False)
+        df.to_excel("mozzart_finished_last_days.xlsx", index=False)
         print(f"ZAVRŠENI MEČEVI ({len(df)}) SAČUVANI.")
     else:
         print("Nema završenih mečeva.")
