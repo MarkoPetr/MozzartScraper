@@ -1,45 +1,36 @@
-name: Mozzart Scraper Daily 1
+name: Mozzart Debug Scraper 1
 
 on:
-  schedule:
-    - cron: '0 9 * * *'   # Svaki dan u 09:00 UTC (10:00 CET)
   workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * *'
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout repository
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    # 2. Set up Python 3.11
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    # 3. Install dependencies including Playwright
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas openpyxl playwright
+        pip install playwright
         playwright install chromium
 
-    # 4. Run Mozzart scraper
-    - name: Run Mozzart scraper
+    - name: Run Mozzart debug scraper
       run: python mozzart_scraper.py
 
-    # 5. Upload artifact only if file exists
-    - name: Upload results if exist
-      run: |
-        FILE="mozzart_finished_yesterday.xlsx"
-        if [ -f "$FILE" ]; then
-          echo "Uploading artifact..."
-          mkdir -p artifacts
-          mv "$FILE" artifacts/
-          gh actions upload-artifact --name mozzart_finished_matches --path artifacts/
-        else
-          echo "Nema završenih mečeva za jučerašnji dan, fajl nije kreiran."
-        fi
+    - name: Upload debug artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: mozzart-debug
+        path: |
+          debug_page.png
+          debug_page.html
