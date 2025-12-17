@@ -2,8 +2,7 @@ name: Mozzart Scraper Daily
 
 on:
   schedule:
-    # Svaki dan u 09:00 UTC (10:00 CET)
-    - cron: '0 9 * * *'
+    - cron: '0 9 * * *'  # svakog dana u 09:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -11,29 +10,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout repozitorijuma
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # 2. Set up Python 3.11
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
-    # 3. Instaliramo Python dependencies
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests pandas openpyxl
+        pip install requests pandas openpyxl playwright
+        playwright install chromium
 
-    # 4. Pokrećemo Mozzart scraper
     - name: Run Mozzart scraper
       run: python mozzart_scraper.py
 
-    # 5. Uploadujemo Excel fajl kao artifact
     - name: Upload results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: mozzart_finished_matches
-        path: mozzart_finished_last_days.xlsx
+        path: mozzart_finished_yesterday.xlsx
