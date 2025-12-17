@@ -1,34 +1,39 @@
-name: Mozzart Scraper Debug
+name: Mozzart Scraper Daily
 
 on:
-  workflow_dispatch:  # Možeš ručno pokrenuti
   schedule:
-    - cron: '0 21 * * *'  # opcionalno: dnevno u 21h
+    # Svaki dan u 09:00 UTC (10:00 CET)
+    - cron: '0 9 * * *'
+  workflow_dispatch:
 
 jobs:
-  debug_scrape:
+  scrape:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
+    # 1. Checkout repozitorijuma
+    - name: Checkout repository
       uses: actions/checkout@v3
 
+    # 2. Set up Python 3.11
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
+    # 3. Instaliramo Python dependencies
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install playwright pandas openpyxl
-        playwright install
+        pip install requests pandas openpyxl
 
-    - name: Run mozzart scraper
+    # 4. Pokrećemo Mozzart scraper
+    - name: Run Mozzart scraper
       run: python mozzart_scraper.py
 
-    - name: Upload debug_matches.txt
-      uses: actions/upload-artifact@v3
+    # 5. Uploadujemo Excel fajl kao artifact (v4)
+    - name: Upload results
+      uses: actions/upload-artifact@v4
       with:
-        name: debug-matches
-        path: debug_matches.txt
+        name: mozzart_finished_matches
+        path: mozzart_finished_last_days.xlsx
