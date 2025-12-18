@@ -1,34 +1,39 @@
-name: Mozzart Scraper Daily
+name: Mozzart Scraper
 
 on:
-  schedule:
-    - cron: '0 9 * * *'  # svaki dan u 09:00
-  workflow_dispatch:
+  workflow_dispatch:  # omogućava ručno pokretanje
+    inputs:
+      date:
+        description: 'Datum za preuzimanje rezultata (YYYY-MM-DD)'
+        required: true
+        default: '2025-12-17'
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pandas openpyxl playwright
-          playwright install chromium
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests pandas openpyxl
 
-      - name: Run Mozzart scraper
-        run: python mozzart_scraper.py
+    - name: Run Mozzart Scraper
+      run: |
+        python mozzart_scraper.py
+      env:
+        SCRAPER_DATE: ${{ github.event.inputs.date }}
 
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: mozzart_finished_yesterday
-          path: mozzart_finished_yesterday.xlsx
+    - name: Upload Excel
+      uses: actions/upload-artifact@v4
+      with:
+        name: mozzart-results
+        path: mozzart_finished_yesterday.xlsx
