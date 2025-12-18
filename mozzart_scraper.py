@@ -16,15 +16,26 @@ def scrape_finished_matches():
         page = browser.new_page()
         page.goto(URL, timeout=60000)
 
-        # 🔹 Scroll do kraja stranice kako bi se učitali svi mečevi
-        previous_height = 0
+        # 🔹 Scroll dok se svi mečevi učitaju
+        previous_count = 0
         while True:
+            # Trenutni broj FT elemenata u DOM-u
+            current_count = len(page.locator("text=FT").all())
+
+            # Skroluj do dna
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            time.sleep(2)  # čekaj da AJAX učita nove mečeve
-            new_height = page.evaluate("document.body.scrollHeight")
-            if new_height == previous_height:
+
+            # Čekaj dok se pojavi novi meč ili max 5 sekundi
+            for _ in range(5):
+                time.sleep(1)
+                new_count = len(page.locator("text=FT").all())
+                if new_count > current_count:
+                    break
+
+            if current_count == previous_count:
+                # Nema novih mečeva
                 break
-            previous_height = new_height
+            previous_count = current_count
 
         # 🔹 Preuzmi sav tekst sa stranice
         body_text = page.locator("body").inner_text()
