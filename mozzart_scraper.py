@@ -1,70 +1,65 @@
 from playwright.sync_api import sync_playwright
-import pandas as pd
+import time
 
-DATE = "2025-12-17"
-URL = f"https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date={DATE}&events=finished"
-OUTPUT_FILE = "mozzart_finished_yesterday.xlsx"
+URL = "https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date=2025-12-17&events=finished"
 
-def scrape_finished_matches():
-    results = []
-    all_requests = []
-
+def debug_page_bottom():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
-        # Presretanje svih XHR/Fetch request-a
-        def capture_request(route, request):
-            if "results" in request.url or "events" in request.url:
-                all_requests.append(request.url)
-            route.continue_()
-
-        page.route("**/*", capture_request)
-
         page.goto(URL, timeout=60000)
-        page.wait_for_timeout(8000)  # čekamo da svi requesti prođu
+        page.wait_for_timeout(8000)
 
-        # 🔹 Sada iteriramo sve presretnute URL-ove da dohvatimo JSON sa mečevima
-        import requests
+        # Skroluj do dna
+        last_height = 0
+        for _ in range(10):
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            time.sleep(2)
+            height = page.evaluate("document.body.scrollHeight")
+            if height == last_height:
+                break
+            last_height = height
 
-        for req_url in all_requests:
+        print("\n===== VIDLJIV TEKST NA DNU STRANICE =====\n")
+        text = page.evaluate("""
+            () => {
+                const body = document.body.innerText;
+                return body.slice(body.length - 3000);
+            }
+        """)
+        print(text)
+
+        print("\n===== BUTTON ELEMENTI =====\n")
+        buttons = page.query_selector_all("button")
+        for i, b in enumerate(buttons):
             try:
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "application/json, text/plain, */*",
-                    "Referer": URL,
-                    "Origin": "https://www.mozzartbet.com"
-                }
-                resp = requests.get(req_url, headers=headers, timeout=10)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    matches = data.get("matches", [])
-                    for match in matches:
-                        results.append({
-                            "Time": match.get("time", ""),
-                            "Home": match.get("homeTeam", {}).get("name", ""),
-                            "Away": match.get("awayTeam", {}).get("name", ""),
-                            "FT": f"{match.get('score', {}).get('fullTime', {}).get('home', '-')}" \
-                                  f":{match.get('score', {}).get('fullTime', {}).get('away', '-')}",
-                            "HT": f"{match.get('score', {}).get('halfTime', {}).get('home', '-')}" \
-                                  f":{match.get('score', {}).get('halfTime', {}).get('away', '-')}"
-                        })
-            except Exception as e:
-                continue
+                print(f"[{i}] TEXT:", b.inner_text())
+            except:
+                pass
+
+        print("\n===== ELEMENTI KOJI SADRŽE 'ucitaj / jos / more' =====\n")
+        matches = page.evaluate("""
+            () => {
+                const keywords = ['ucitaj', 'učitaj', 'još', 'jos', 'more', 'load'];
+                const found = [];
+                document.querySelectorAll('*').forEach(el => {
+                    const t = el.innerText?.toLowerCase();
+                    if (t && keywords.some(k => t.includes(k))) {
+                        found.push({
+                            tag: el.tagName,
+                            text: el.innerText,
+                            disabled: el.disabled || false
+                        });
+                    }
+                });
+                return found;
+            }
+        """)
+        for m in matches:
+            print(m)
 
         browser.close()
 
-    # Ukloni duplikate ako ih ima
-    unique_results = [dict(t) for t in {tuple(d.items()) for d in results}]
-    return unique_results
-
 if __name__ == "__main__":
-    matches = scrape_finished_matches()
-
-    df = pd.DataFrame(matches)
-    df.to_excel(OUTPUT_FILE, index=False)
-
-    if matches:
-        print(f"✅ Sačuvano {len(df)} završenih fudbalskih mečeva")
-    else:
-        print("⚠️ Nema završenih fudbalskih mečeva")
+    debug_page_bottom()
