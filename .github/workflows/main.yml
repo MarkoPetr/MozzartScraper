@@ -1,7 +1,7 @@
-name: Mozzart Scraper
+name: Mozzart Scraper Playwright
 
 on:
-  workflow_dispatch:  # omogućava ručno pokretanje
+  workflow_dispatch:
     inputs:
       date:
         description: 'Datum za preuzimanje rezultata (YYYY-MM-DD)'
@@ -24,13 +24,14 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests pandas openpyxl
+        pip install playwright pandas openpyxl
+        playwright install
 
     - name: Run Mozzart Scraper
       run: |
         python mozzart_scraper.py
       env:
-        SCRAPER_DATE: ${{ github.event.inputs.date }}
+        DATE: ${{ github.event.inputs.date }}
 
     - name: Upload Excel
       uses: actions/upload-artifact@v4
