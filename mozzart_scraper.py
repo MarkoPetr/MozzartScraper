@@ -17,7 +17,7 @@ OUTPUT_DIR = "output"
 EXCEL_FILE = "output/mozzart_184_matches.xlsx"
 
 
-def scrape_page():
+def scrape_text():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     with sync_playwright() as p:
@@ -70,15 +70,28 @@ def parse_matches(text):
     matches = []
 
     i = 0
-    while i < len(lines) - 7:
+    while i < len(lines):
         if lines[i] == "FT":
             try:
                 time_m = lines[i - 1]
                 home = lines[i + 1]
                 away = lines[i + 2]
 
-                ft_home, ft_away = map(int, lines[i + 3].split())
-                ht_home, ht_away = map(int, lines[i + 4].split())
+                # tražimo dva reda sa po dva broja
+                scores = []
+                j = i + 3
+                while j < len(lines) and len(scores) < 2:
+                    nums = re.findall(r"\b\d+\b", lines[j])
+                    if len(nums) == 2:
+                        scores.append((int(nums[0]), int(nums[1])))
+                    j += 1
+
+                if len(scores) != 2:
+                    i += 1
+                    continue
+
+                ft_home, ft_away = scores[0]
+                ht_home, ht_away = scores[1]
 
                 sh_home = ft_home - ht_home
                 sh_away = ft_away - ht_away
@@ -90,12 +103,10 @@ def parse_matches(text):
                     "FT": f"{ft_home}:{ft_away}",
                     "HT": f"{ht_home}:{ht_away}",
                     "SH": f"{sh_home}:{sh_away}",
-                    "FT_Goals": ft_home + ft_away,
-                    "SH_Goals": sh_home + sh_away,
                 })
+
             except:
                 pass
-            i += 6
         i += 1
 
     return matches
@@ -103,7 +114,7 @@ def parse_matches(text):
 
 def main():
     print("📱 Preuzimam stranicu...")
-    text = scrape_page()
+    text = scrape_text()
 
     print("🧠 Parsiram mečeve...")
     matches = parse_matches(text)
