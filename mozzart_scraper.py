@@ -2,16 +2,26 @@ from playwright.sync_api import sync_playwright
 import pandas as pd
 import os
 import time
+import random
+from datetime import datetime, timedelta
 
-URL = "https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date=2025-12-17&events=finished"
+# automatski datum za juče
+yesterday = datetime.now() - timedelta(days=1)
+DATE_STR = yesterday.strftime("%Y-%m-%d")
+
+URL = f"https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date={DATE_STR}&events=finished"
 OUTPUT_DIR = "output"
-EXCEL_FILE = os.path.join(OUTPUT_DIR, "mozzart_184_matches.xlsx")
+EXCEL_FILE = os.path.join(OUTPUT_DIR, f"mozzart_{DATE_STR}_matches.xlsx")
 
 MOBILE_UA = (
     "Mozilla/5.0 (Linux; Android 13; SM-A166B) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/120.0.0.0 Mobile Safari/537.36"
 )
+
+def human_sleep(min_sec=5, max_sec=10):
+    wait_time = random.uniform(min_sec, max_sec)
+    time.sleep(wait_time)
 
 def scrape_text():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -25,20 +35,25 @@ def scrape_text():
         )
         page = context.new_page()
         page.goto(URL, timeout=60000)
-        page.wait_for_timeout(7000)
+        time.sleep(random.uniform(6, 9))  # human-like čekanje na učitavanje
 
-        # zatvaranje popup-a sa kolačićima ako postoji
+        # zatvaranje popup-a sa kolačićima
         try:
             page.click("text=Sačuvaj i zatvori", timeout=5000)
-            page.wait_for_timeout(3000)
+            time.sleep(random.uniform(2,4))
         except:
             pass
 
         # Scroll i klik na "Učitaj još" dok god postoji
         while True:
             try:
+                # human-like scroll
+                scroll_height = random.randint(400, 700)
+                page.evaluate(f"window.scrollBy(0, {scroll_height})")
+                time.sleep(random.uniform(1,2))
+
                 page.click("text=Učitaj još", timeout=3000)
-                page.wait_for_timeout(7000)
+                human_sleep(5,10)
             except:
                 break
 
@@ -54,7 +69,6 @@ def parse_matches(text):
     while i < len(lines):
         if lines[i] == "FT":
             try:
-                # uzimamo sledećih 6 linija
                 time_m = lines[i + 1]
                 home = lines[i + 2]
                 away = lines[i + 3]
@@ -76,7 +90,6 @@ def parse_matches(text):
                 })
 
             except Exception as e:
-                # ako nešto nije kako treba, preskoči taj blok
                 pass
             i += 8
         else:
@@ -84,7 +97,7 @@ def parse_matches(text):
     return matches
 
 def main():
-    print("📱 Preuzimam stranicu...")
+    print(f"📅 Preuzimam mečeve od juče: {DATE_STR}")
     text = scrape_text()
 
     print("🧠 Parsiram mečeve...")
