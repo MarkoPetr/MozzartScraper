@@ -1,57 +1,40 @@
 from playwright.sync_api import sync_playwright
-import pandas as pd
 import time
 
 URL = "https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date=2025-12-17&events=finished"
-OUTPUT_FILE = "mozzart_finished_yesterday.xlsx"
 
-def scrape_yesterday_finished():
-    results = []
-
+def scrape_first_5_matches():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=False)  # headless=False da možeš videti šta se dešava
         page = browser.new_page()
         page.goto(URL, timeout=60000)
 
-        # čekamo da se stranica stabilizuje i da se rezultati učitaju
-        page.wait_for_timeout(6000)
+        # čekamo da se svi mečevi učitaju
+        page.wait_for_timeout(8000)
 
-        # uzimamo tekst cele stranice
+        # dohvat celog tela stranice
+        body_html = page.locator("body").inner_html()
         body_text = page.locator("body").inner_text()
 
-        lines = [l.strip() for l in body_text.splitlines() if l.strip()]
+        print("===== CELO BODY INNER_HTML =====")
+        print(body_html[:5000])  # ispis prvih 5000 karaktera HTML-a
+        print("\n===== CELO BODY INNER_TEXT =====")
+        print(body_text[:3000])  # ispis prvih 3000 karaktera teksta
 
-        i = 0
-        while i < len(lines) - 6:
-            if lines[i] == "FT":
-                try:
-                    time_match = lines[i - 1]
-                    home = lines[i + 1]
-                    away = lines[i + 2]
-                    ft = lines[i + 3]
+        # pokušaj da dohvatimo prve 5 završenih mečeva
+        matches_elements = page.locator("div.match-row")  # proveri tačan selektor
+        count = min(matches_elements.count(), 5)
 
-                    if ":" in ft:
-                        results.append({
-                            "Time": time_match,
-                            "Home": home,
-                            "Away": away,
-                            "FT": ft
-                        })
-                except Exception as e:
-                    print("⚠️ Greška pri parsiranju meča:", e)
-            i += 1
+        print("\n===== PRVIH 5 MEČEVA =====")
+        for i in range(count):
+            match = matches_elements.nth(i)
+            try:
+                print("----- MEČ", i+1, "-----")
+                print(match.inner_text())
+            except Exception as e:
+                print("⚠️ Greška pri dohvaćanju meča:", e)
 
         browser.close()
 
-    return results
-
 if __name__ == "__main__":
-    matches = scrape_yesterday_finished()
-
-    df = pd.DataFrame(matches)
-    df.to_excel(OUTPUT_FILE, index=False)
-
-    if matches:
-        print(f"✅ Sačuvano {len(df)} završenih fudbalskih mečeva")
-    else:
-        print("⚠️ Nema završenih fudbalskih mečeva za 17.12.2025")
+    scrape_first_5_matches()
