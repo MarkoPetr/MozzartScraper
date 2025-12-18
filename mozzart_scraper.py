@@ -1,71 +1,37 @@
-from playwright.sync_api import sync_playwright
+import requests
 import pandas as pd
-import time
 
-# URL sa datumom koji želiš da preuzmeš
-URL = "https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date=2025-12-17&events=finished"
+# Datum koji želiš da preuzmeš (format YYYY-MM-DD)
+DATE = "2025-12-17"
 
-# Obavezno ime fajla da se poklapa sa workflow upload step-om
+# Output Excel fajl
 OUTPUT_FILE = "mozzart_finished_yesterday.xlsx"
 
+# 🔹 Skriveni Mozzart endpoint
+URL = f"https://www.mozzartbet.com/api/fb/results?date={DATE}&events=finished"
+
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
+
 def scrape_finished_matches():
+    response = requests.get(URL, headers=headers)
+    data = response.json()  # JSON sa svim mečevima
+
     results = []
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto(URL, timeout=60000)
+    for match in data.get("matches", []):
+        # Svaki meč sadrži timove, FT i HT rezultate
+        results.append({
+            "Time": match.get("time", ""),
+            "Home": match.get("homeTeam", {}).get("name", ""),
+            "Away": match.get("awayTeam", {}).get("name", ""),
+            "FT": f"{match.get('score', {}).get('fullTime', {}).get('home', '-')}" \
+                  f":{match.get('score', {}).get('fullTime', {}).get('away', '-')}",
+            "HT": f"{match.get('score', {}).get('halfTime', {}).get('home', '-')}" \
+                  f":{match.get('score', {}).get('halfTime', {}).get('away', '-')}"
+        })
 
-        # 🔹 Scroll dok se svi mečevi učitaju
-        previous_count = 0
-        while True:
-            # Trenutni broj FT elemenata u DOM-u
-            current_count = len(page.locator("text=FT").all())
-
-            # Skroluj do dna
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-
-            # Čekaj dok se pojavi novi meč ili max 5 sekundi
-            for _ in range(5):
-                time.sleep(1)
-                new_count = len(page.locator("text=FT").all())
-                if new_count > current_count:
-                    break
-
-            if current_count == previous_count:
-                # Nema novih mečeva
-                break
-            previous_count = current_count
-
-        # 🔹 Preuzmi sav tekst sa stranice
-        body_text = page.locator("body").inner_text()
-        lines = [l.strip() for l in body_text.splitlines() if l.strip()]
-
-        # 🔹 Parsiranje FT mečeva
-        i = 0
-        while i < len(lines) - 7:  # -7 jer uzimamo 7 linija posle FT
-            if lines[i] == "FT":
-                try:
-                    time_match = lines[i + 1]
-                    home = lines[i + 2]
-                    away = lines[i + 3]
-                    ft_home = lines[i + 4]
-                    ft_away = lines[i + 5]
-                    ht_home = lines[i + 6]
-                    ht_away = lines[i + 7]
-
-                    results.append({
-                        "Time": time_match,
-                        "Home": home,
-                        "Away": away,
-                        "FT": f"{ft_home}:{ft_away}",
-                        "HT": f"{ht_home}:{ht_away}"
-                    })
-                except Exception as e:
-                    print("⚠️ Greška pri parsiranju meča:", e)
-            i += 1
-
-        browser.close()
     return results
 
 if __name__ == "__main__":
