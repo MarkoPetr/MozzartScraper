@@ -1,8 +1,8 @@
-name: Mozzart Scraper Daily 1
+name: Mozzart Scraper Daily
 
 on:
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '0 9 * * *'  # svaki dan u 09:00
   workflow_dispatch:
 
 jobs:
