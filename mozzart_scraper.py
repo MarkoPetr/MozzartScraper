@@ -2,6 +2,8 @@ from playwright.sync_api import sync_playwright
 import time
 import os
 import random
+import pandas as pd
+import re
 
 URL = "https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date=2025-12-17&events=finished"
 
@@ -11,80 +13,106 @@ MOBILE_UA = (
     "Chrome/120.0.0.0 Mobile Safari/537.36"
 )
 
-def run():
-    os.makedirs("output", exist_ok=True)
+OUTPUT_DIR = "output"
+EXCEL_FILE = "output/mozzart_184_matches.xlsx"
+
+
+def scrape_page():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
             user_agent=MOBILE_UA,
-            viewport={"width": 412, "height": 915},  # real Android rezolucija
+            viewport={"width": 412, "height": 915},
             locale="sr-RS",
         )
         page = context.new_page()
 
-        print("📱 Otvaram Mozzart kao ANDROID browser...")
         page.goto(URL, timeout=60000)
         page.wait_for_timeout(7000)
 
-        # cookie popup
         try:
             page.click("text=Sačuvaj i zatvori", timeout=5000)
-            print("🍪 Cookie popup zatvoren")
             page.wait_for_timeout(3000)
         except:
             pass
 
         last_count = 0
 
-        for cycle in range(1, 25):
-            print(f"\n🔄 CIKLUS {cycle}")
+        for _ in range(30):
+            page.mouse.wheel(0, random.randint(400, 700))
+            page.wait_for_timeout(random.randint(1200, 2000))
 
-            # mali scroll (kao prst)
-            for _ in range(4):
-                page.mouse.wheel(0, random.randint(400, 700))
-                page.wait_for_timeout(random.randint(1200, 2000))
-
-            # klik "Učitaj još" ako postoji
-            clicked = False
             try:
-                page.click("text=Učitaj još", timeout=4000)
-                clicked = True
-                print("➕ Klik na 'Učitaj još'")
+                page.click("text=Učitaj još", timeout=3000)
             except:
-                print("ℹ️ Dugme 'Učitaj još' nije dostupno")
+                pass
 
-            wait_time = random.randint(6000, 9000)
-            print(f"⏳ Čekam {wait_time/1000:.1f}s da backend učita...")
-            page.wait_for_timeout(wait_time)
+            page.wait_for_timeout(random.randint(6000, 9000))
 
-            # brojimo FT (završene mečeve)
             count = page.evaluate("""
                 () => document.body.innerText.split('\\n').filter(x => x.trim() === 'FT').length
             """)
 
-            print(f"📊 Trenutno učitano mečeva: {count}")
-
             if count <= last_count:
-                print("🛑 Nema novih mečeva — backend stao")
                 break
-
             last_count = count
 
-        print("\n📸 Snimam kompletan prikaz...")
-        page.screenshot(path="output/full_page.png", full_page=True)
-
-        print("💾 Snimam HTML...")
-        with open("output/page.html", "w", encoding="utf-8") as f:
-            f.write(page.content())
-
-        print("📝 Snimam sav vidljiv tekst...")
-        with open("output/page.txt", "w", encoding="utf-8") as f:
-            f.write(page.inner_text("body"))
-
+        text = page.inner_text("body")
         browser.close()
 
-    print("\n✅ GOTOVO — mobile + sporo scrape završen")
+    return text
+
+
+def parse_matches(text):
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    matches = []
+
+    i = 0
+    while i < len(lines) - 7:
+        if lines[i] == "FT":
+            try:
+                time_m = lines[i - 1]
+                home = lines[i + 1]
+                away = lines[i + 2]
+
+                ft_home, ft_away = map(int, lines[i + 3].split())
+                ht_home, ht_away = map(int, lines[i + 4].split())
+
+                sh_home = ft_home - ht_home
+                sh_away = ft_away - ht_away
+
+                matches.append({
+                    "Time": time_m,
+                    "Home": home,
+                    "Away": away,
+                    "FT": f"{ft_home}:{ft_away}",
+                    "HT": f"{ht_home}:{ht_away}",
+                    "SH": f"{sh_home}:{sh_away}",
+                    "FT_Goals": ft_home + ft_away,
+                    "SH_Goals": sh_home + sh_away,
+                })
+            except:
+                pass
+            i += 6
+        i += 1
+
+    return matches
+
+
+def main():
+    print("📱 Preuzimam stranicu...")
+    text = scrape_page()
+
+    print("🧠 Parsiram mečeve...")
+    matches = parse_matches(text)
+
+    df = pd.DataFrame(matches)
+    df.to_excel(EXCEL_FILE, index=False)
+
+    print(f"✅ Sačuvano {len(df)} mečeva u {EXCEL_FILE}")
+
 
 if __name__ == "__main__":
-    run()
+    main()
