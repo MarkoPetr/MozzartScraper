@@ -15,11 +15,22 @@ def scrape_finished_matches():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(URL, timeout=60000)
-        page.wait_for_timeout(8000)  # čekamo da se AJAX sadržaj učita
 
+        # 🔹 Scroll do kraja stranice kako bi se učitali svi mečevi
+        previous_height = 0
+        while True:
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            time.sleep(2)  # čekaj da AJAX učita nove mečeve
+            new_height = page.evaluate("document.body.scrollHeight")
+            if new_height == previous_height:
+                break
+            previous_height = new_height
+
+        # 🔹 Preuzmi sav tekst sa stranice
         body_text = page.locator("body").inner_text()
         lines = [l.strip() for l in body_text.splitlines() if l.strip()]
 
+        # 🔹 Parsiranje FT mečeva
         i = 0
         while i < len(lines) - 7:  # -7 jer uzimamo 7 linija posle FT
             if lines[i] == "FT":
