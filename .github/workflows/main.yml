@@ -1,40 +1,27 @@
-name: Mozzart Scraper Playwright XHR
+name: Mozzart Debug
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
-    inputs:
-      date:
-        description: 'Datum za preuzimanje rezultata (YYYY-MM-DD)'
-        required: true
-        default: '2025-12-17'
 
 jobs:
-  scrape:
+  debug:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
-    - name: Setup Python
-      uses: actions/setup-python@v5
+    - name: Set up Python
+      uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
-    - name: Install Playwright and dependencies
+    - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install playwright pandas openpyxl requests
-        playwright install
+        pip install playwright
+        playwright install chromium
 
-    - name: Run Mozzart Scraper
-      run: |
-        python mozzart_scraper.py
-      env:
-        DATE: ${{ github.event.inputs.date }}
-
-    - name: Upload Excel
-      uses: actions/upload-artifact@v4
-      with:
-        name: mozzart-results
-        path: mozzart_finished_yesterday.xlsx
+    - name: Run debug scraper
+      run: python mozzart_scraper.py
