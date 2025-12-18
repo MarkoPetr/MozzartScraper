@@ -2,8 +2,11 @@ from playwright.sync_api import sync_playwright
 import pandas as pd
 import time
 
+# URL sa datumom koji želiš da preuzmeš
 URL = "https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date=2025-12-17&events=finished"
-OUTPUT_FILE = "mozzart_finished_1712.xlsx"
+
+# Obavezno ime fajla da se poklapa sa workflow upload step-om
+OUTPUT_FILE = "mozzart_finished_yesterday.xlsx"
 
 def scrape_finished_matches():
     results = []
@@ -18,7 +21,7 @@ def scrape_finished_matches():
         lines = [l.strip() for l in body_text.splitlines() if l.strip()]
 
         i = 0
-        while i < len(lines) - 6:  # -6 jer uzimamo 6 linija posle FT
+        while i < len(lines) - 7:  # -7 jer uzimamo 7 linija posle FT
             if lines[i] == "FT":
                 try:
                     time_match = lines[i + 1]
@@ -50,6 +53,6 @@ if __name__ == "__main__":
     df.to_excel(OUTPUT_FILE, index=False)
 
     if matches:
-        print(f"✅ Sačuvano {len(df)} završenih fudbalskih mečeva za 17.12.2025")
+        print(f"✅ Sačuvano {len(df)} završenih fudbalskih mečeva")
     else:
-        print("⚠️ Nema završenih fudbalskih mečeva za 17.12.2025")
+        print("⚠️ Nema završenih fudbalskih mečeva")
