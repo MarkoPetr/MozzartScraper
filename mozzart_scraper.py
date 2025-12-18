@@ -2,10 +2,8 @@ from playwright.sync_api import sync_playwright
 import pandas as pd
 import time
 
-URL = "https://www.mozzartbet.com/sr/rezultati?events=finished"
-
+URL = "https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date=2025-12-17&events=finished"
 OUTPUT_FILE = "mozzart_finished_yesterday.xlsx"
-
 
 def scrape_yesterday_finished():
     results = []
@@ -15,33 +13,8 @@ def scrape_yesterday_finished():
         page = browser.new_page()
         page.goto(URL, timeout=60000)
 
-        # čekamo da se stranica stabilizuje
+        # čekamo da se stranica stabilizuje i da se rezultati učitaju
         page.wait_for_timeout(6000)
-
-        # klik na TAB "Završeni" (ako već nije aktivan)
-        try:
-            page.locator("text=Završeni").first.click()
-            page.wait_for_timeout(3000)
-        except:
-            pass
-
-        # klik LEVO – jučerašnji datum (strelica)
-        try:
-            page.locator("button", has_text="‹").first.click()
-        except:
-            try:
-                page.locator("button", has_text="<").first.click()
-            except:
-                pass
-
-        page.wait_for_timeout(4000)
-
-        # samo FUDBAL
-        try:
-            page.locator("text=Fudbal").first.click()
-            page.wait_for_timeout(3000)
-        except:
-            pass
 
         # uzimamo tekst cele stranice
         body_text = page.locator("body").inner_text()
@@ -64,14 +37,13 @@ def scrape_yesterday_finished():
                             "Away": away,
                             "FT": ft
                         })
-                except:
-                    pass
+                except Exception as e:
+                    print("⚠️ Greška pri parsiranju meča:", e)
             i += 1
 
         browser.close()
 
     return results
-
 
 if __name__ == "__main__":
     matches = scrape_yesterday_finished()
@@ -82,4 +54,4 @@ if __name__ == "__main__":
     if matches:
         print(f"✅ Sačuvano {len(df)} završenih fudbalskih mečeva")
     else:
-        print("⚠️ Nema završenih fudbalskih mečeva za jučerašnji dan")
+        print("⚠️ Nema završenih fudbalskih mečeva za 17.12.2025")
