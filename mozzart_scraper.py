@@ -47,7 +47,6 @@ def scrape_text():
         # Scroll i klik na "Učitaj još" dok god postoji
         while True:
             try:
-                # human-like scroll
                 scroll_height = random.randint(400, 700)
                 page.evaluate(f"window.scrollBy(0, {scroll_height})")
                 time.sleep(random.uniform(1,2))
@@ -64,9 +63,19 @@ def scrape_text():
 def parse_matches(text):
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     matches = []
-
+    current_league = ""
     i = 0
+
     while i < len(lines):
+        # prepoznaj liniju koja je liga
+        if not lines[i].isdigit() and "FT" not in lines[i] and ":" not in lines[i]:
+            current_league = lines[i]
+            i += 1  # preskoči broj mečeva ispod lige
+            if i < len(lines) and lines[i].isdigit():
+                i += 1
+            continue
+
+        # meč
         if lines[i] == "FT":
             try:
                 time_m = lines[i + 1]
@@ -82,6 +91,7 @@ def parse_matches(text):
 
                 matches.append({
                     "Time": time_m,
+                    "Liga": current_league,
                     "Home": home,
                     "Away": away,
                     "FT": f"{ft_home}:{ft_away}",
