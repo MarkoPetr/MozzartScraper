@@ -5,13 +5,8 @@ import time
 import random
 from datetime import datetime, timedelta
 
-# automatski datum za juče
-yesterday = datetime.now() - timedelta(days=1)
-DATE_STR = yesterday.strftime("%Y-%m-%d")
-
-URL = f"https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date={DATE_STR}&events=finished"
 OUTPUT_DIR = "output"
-EXCEL_FILE = os.path.join(OUTPUT_DIR, f"mozzart_{DATE_STR}_matches.xlsx")
+DAYS_BACK = 7
 
 MOBILE_UA = (
     "Mozilla/5.0 (Linux; Android 13; SM-A166B) "
@@ -20,11 +15,10 @@ MOBILE_UA = (
 )
 
 def human_sleep(min_sec=5, max_sec=10):
-    wait_time = random.uniform(min_sec, max_sec)
-    time.sleep(wait_time)
+    time.sleep(random.uniform(min_sec, max_sec))
 
-def scrape_text():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+def scrape_text(date_str):
+    url = f"https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date={date_str}&events=finished"
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -34,43 +28,41 @@ def scrape_text():
             locale="sr-RS"
         )
         page = context.new_page()
-        page.goto(URL, timeout=60000)
-        time.sleep(random.uniform(6, 9))  # human-like čekanje na učitavanje
+        page.goto(url, timeout=60000)
+        human_sleep(6, 9)
 
-        # zatvaranje popup-a sa kolačićima
+        # cookies popup
         try:
             page.click("text=Sačuvaj i zatvori", timeout=5000)
-            time.sleep(random.uniform(2,4))
+            human_sleep(2, 4)
         except:
             pass
 
-        # Scroll i klik na "Učitaj još" dok god postoji
+        # učitaj sve mečeve
         while True:
             try:
-                scroll_height = random.randint(400, 700)
-                page.evaluate(f"window.scrollBy(0, {scroll_height})")
-                time.sleep(random.uniform(1,2))
-
+                page.evaluate("window.scrollBy(0, 600)")
+                human_sleep(1, 2)
                 page.click("text=Učitaj još", timeout=3000)
-                human_sleep(5,10)
+                human_sleep(4, 8)
             except:
                 break
 
         text = page.inner_text("body")
         browser.close()
-    return text
+        return text
 
-def parse_matches(text):
+def parse_matches(text, date_str):
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     matches = []
     current_league = ""
     i = 0
 
     while i < len(lines):
-        # prepoznaj liniju koja je liga
+        # liga
         if not lines[i].isdigit() and "FT" not in lines[i] and ":" not in lines[i]:
             current_league = lines[i]
-            i += 1  # preskoči broj mečeva ispod lige
+            i += 1
             if i < len(lines) and lines[i].isdigit():
                 i += 1
             continue
@@ -90,6 +82,7 @@ def parse_matches(text):
                 sh_away = ft_away - ht_away
 
                 matches.append({
+                    "Datum": date_str,
                     "Time": time_m,
                     "Liga": current_league,
                     "Home": home,
@@ -98,26 +91,42 @@ def parse_matches(text):
                     "HT": f"{ht_home}:{ht_away}",
                     "SH": f"{sh_home}:{sh_away}",
                 })
-
-            except Exception as e:
+            except:
                 pass
+
             i += 8
         else:
             i += 1
+
     return matches
 
 def main():
-    print(f"📅 Preuzimam mečeve od juče: {DATE_STR}")
-    text = scrape_text()
-
-    print("🧠 Parsiram mečeve...")
-    matches = parse_matches(text)
-
-    df = pd.DataFrame(matches)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    df.to_excel(EXCEL_FILE, index=False)
+    all_matches = []
 
-    print(f"✅ Sačuvano {len(df)} mečeva u {EXCEL_FILE}")
+    for d in range(1, DAYS_BACK + 1):
+        date = datetime.now() - timedelta(days=d)
+        date_str = date.strftime("%Y-%m-%d")
+
+        print(f"📅 Scraping: {date_str}")
+        text = scrape_text(date_str)
+        matches = parse_matches(text, date_str)
+
+        print(f"   ➜ pronađeno {len(matches)} mečeva")
+        all_matches.extend(matches)
+
+        human_sleep(10, 15)  # pauza između dana (anti-ban)
+
+    df = pd.DataFrame(all_matches)
+
+    excel_path = os.path.join(
+        OUTPUT_DIR,
+        f"mozzart_last_{DAYS_BACK}_days.xlsx"
+    )
+
+    df.to_excel(excel_path, index=False)
+    print(f"\n✅ Ukupno {len(df)} mečeva")
+    print(f"📁 Sačuvano u: {excel_path}")
 
 if __name__ == "__main__":
     main()
