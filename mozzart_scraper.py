@@ -3,10 +3,9 @@ import pandas as pd
 import os
 import time
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 OUTPUT_DIR = "output"
-DAYS_BACK = 7
 
 MOBILE_UA = (
     "Mozilla/5.0 (Linux; Android 13; SM-A166B) "
@@ -104,10 +103,14 @@ def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     all_matches = []
 
-    for d in range(1, DAYS_BACK + 1):
-        date = datetime.now() - timedelta(days=d)
-        date_str = date.strftime("%Y-%m-%d")
+    # ✅ TAČNI DATUMI
+    dates_to_scrape = [
+        "2025-12-31",
+        "2026-01-01",
+        "2026-01-02"
+    ]
 
+    for date_str in dates_to_scrape:
         print(f"📅 Scraping: {date_str}")
         text = scrape_text(date_str)
         matches = parse_matches(text, date_str)
@@ -121,7 +124,7 @@ def main():
 
     excel_path = os.path.join(
         OUTPUT_DIR,
-        f"mozzart_last_{DAYS_BACK}_days.xlsx"
+        f"mozzart_results_custom_dates.xlsx"
     )
 
     df.to_excel(excel_path, index=False)
