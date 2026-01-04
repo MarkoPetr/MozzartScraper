@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 OUTPUT_DIR = "output"
 
@@ -101,33 +101,25 @@ def parse_matches(text, date_str):
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    all_matches = []
 
-    # ✅ TAČNI DATUMI
-    dates_to_scrape = [
-        "2025-12-31",
-        "2026-01-01",
-        "2026-01-02"
-    ]
+    # ✅ JUČERAŠNJI DATUM
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    print(f"📅 Scraping jučerašnji datum: {yesterday}")
 
-    for date_str in dates_to_scrape:
-        print(f"📅 Scraping: {date_str}")
-        text = scrape_text(date_str)
-        matches = parse_matches(text, date_str)
+    text = scrape_text(yesterday)
+    matches = parse_matches(text, yesterday)
 
-        print(f"   ➜ pronađeno {len(matches)} mečeva")
-        all_matches.extend(matches)
+    print(f"   ➜ pronađeno {len(matches)} mečeva")
 
-        human_sleep(10, 15)  # pauza između dana (anti-ban)
-
-    df = pd.DataFrame(all_matches)
+    df = pd.DataFrame(matches)
 
     excel_path = os.path.join(
         OUTPUT_DIR,
-        f"mozzart_results_custom_dates.xlsx"
+        f"mozzart_results_{yesterday}.xlsx"
     )
 
     df.to_excel(excel_path, index=False)
+
     print(f"\n✅ Ukupno {len(df)} mečeva")
     print(f"📁 Sačuvano u: {excel_path}")
 
