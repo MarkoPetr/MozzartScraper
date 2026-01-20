@@ -3,7 +3,6 @@ import pandas as pd
 import os
 import time
 import random
-from datetime import datetime, timedelta
 
 OUTPUT_DIR = "output"
 
@@ -18,6 +17,7 @@ def human_sleep(min_sec=5, max_sec=10):
 
 def scrape_text(date_str):
     url = f"https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date={date_str}&events=finished"
+    print(f"🌐 Otvaram: {url}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -102,26 +102,42 @@ def parse_matches(text, date_str):
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # ✅ JUČERAŠNJI DATUM
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    print(f"📅 Scraping jučerašnji datum: {yesterday}")
+    # ✅ DATUMI KOJE SKIDAMO
+    dates = [
+        "2026-01-16",
+        "2026-01-17",
+        "2026-01-18",
+        "2026-01-19",
+    ]
 
-    text = scrape_text(yesterday)
-    matches = parse_matches(text, yesterday)
+    all_matches = []
 
-    print(f"   ➜ pronađeno {len(matches)} mečeva")
+    for date_str in dates:
+        print(f"\n📅 Scraping datum: {date_str}")
 
-    df = pd.DataFrame(matches)
+        text = scrape_text(date_str)
+        matches = parse_matches(text, date_str)
 
-    excel_path = os.path.join(
+        print(f"   ➜ pronađeno {len(matches)} mečeva")
+
+        all_matches.extend(matches)
+
+    if not all_matches:
+        print("❌ Nije pronađen nijedan meč!")
+        return
+
+    df = pd.DataFrame(all_matches)
+
+    output_file = os.path.join(
         OUTPUT_DIR,
-        f"mozzart_results_{yesterday}.xlsx"
+        "mozzart_results_2026-01-16_to_2026-01-19.xlsx"
     )
 
-    df.to_excel(excel_path, index=False)
+    df.to_excel(output_file, index=False)
 
-    print(f"\n✅ Ukupno {len(df)} mečeva")
-    print(f"📁 Sačuvano u: {excel_path}")
+    print("\n✅ GOTOVO!")
+    print(f"📊 Ukupno mečeva: {len(df)}")
+    print(f"📁 Sačuvano u: {output_file}")
 
 if __name__ == "__main__":
     main()
