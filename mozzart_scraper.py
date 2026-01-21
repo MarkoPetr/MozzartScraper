@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import time
 import random
+from datetime import datetime, timedelta
 
 OUTPUT_DIR = "output"
 
@@ -102,35 +103,26 @@ def parse_matches(text, date_str):
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # ✅ DATUMI KOJE SKIDAMO
-    dates = [
-        "2026-01-16",
-        "2026-01-17",
-        "2026-01-18",
-        "2026-01-19",
-    ]
+    # ✅ UVEK UZIMA JUČERAŠNJI DATUM
+    yesterday = datetime.now() - timedelta(days=1)
+    date_str = yesterday.strftime("%Y-%m-%d")
 
-    all_matches = []
+    print(f"\n📅 Skidam podatke za: {date_str}")
 
-    for date_str in dates:
-        print(f"\n📅 Scraping datum: {date_str}")
+    text = scrape_text(date_str)
+    matches = parse_matches(text, date_str)
 
-        text = scrape_text(date_str)
-        matches = parse_matches(text, date_str)
+    print(f"   ➜ pronađeno {len(matches)} mečeva")
 
-        print(f"   ➜ pronađeno {len(matches)} mečeva")
-
-        all_matches.extend(matches)
-
-    if not all_matches:
+    if not matches:
         print("❌ Nije pronađen nijedan meč!")
         return
 
-    df = pd.DataFrame(all_matches)
+    df = pd.DataFrame(matches)
 
     output_file = os.path.join(
         OUTPUT_DIR,
-        "mozzart_results_2026-01-16_to_2026-01-19.xlsx"
+        f"mozzart_results_{date_str}.xlsx"
     )
 
     df.to_excel(output_file, index=False)
