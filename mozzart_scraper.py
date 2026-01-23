@@ -1,102 +1,60 @@
-from playwright.sync_api import sync_playwright
+import requests
 import pandas as pd
 import os
-import time
-import random
 from datetime import datetime, timedelta
 
 OUTPUT_DIR = "output"
 
-MOBILE_UA = (
-    "Mozilla/5.0 (Linux; Android 13; SM-A166B) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/120.0.0.0 Mobile Safari/537.36"
-)
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Linux; Android 13; SM-A166B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+}
 
-def human_sleep(min_sec=5, max_sec=10):
-    time.sleep(random.uniform(min_sec, max_sec))
+def fetch_matches(date_str):
+    url = f"https://api.sofascore.com/api/v1/sport/football/scheduled-events/{date_str}"
+    print(f"🌐 Skidam: {url}")
 
-def scrape_text(date_str):
-    url = f"https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date={date_str}&events=finished"
-    print(f"🌐 Otvaram: {url}")
+    r = requests.get(url, headers=HEADERS, timeout=30)
+    r.raise_for_status()
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent=MOBILE_UA,
-            viewport={"width": 412, "height": 915},
-            locale="sr-RS"
-        )
-        page = context.new_page()
-        page.goto(url, timeout=60000)
-        human_sleep(6, 9)
+    data = r.json()
+    return data.get("events", [])
 
-        # cookies popup
-        try:
-            page.click("text=Sačuvaj i zatvori", timeout=5000)
-            human_sleep(2, 4)
-        except:
-            pass
-
-        # učitaj sve mečeve
-        while True:
-            try:
-                page.evaluate("window.scrollBy(0, 600)")
-                human_sleep(1, 2)
-                page.click("text=Učitaj još", timeout=3000)
-                human_sleep(4, 8)
-            except:
-                break
-
-        text = page.inner_text("body")
-        browser.close()
-        return text
-
-def parse_matches(text, date_str):
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
+def parse_matches(events, date_str):
     matches = []
-    current_league = ""
-    i = 0
 
-    while i < len(lines):
-        # liga
-        if not lines[i].isdigit() and "FT" not in lines[i] and ":" not in lines[i]:
-            current_league = lines[i]
-            i += 1
-            if i < len(lines) and lines[i].isdigit():
-                i += 1
+    for ev in events:
+        try:
+            home = ev["homeTeam"]["name"]
+            away = ev["awayTeam"]["name"]
+
+            league = ev["tournament"]["name"]
+            country = ev["tournament"]["category"]["name"]
+
+            score = ev.get("score", {})
+            ft_home = score.get("current", {}).get("home")
+            ft_away = score.get("current", {}).get("away")
+
+            ht_home = score.get("period1", {}).get("home")
+            ht_away = score.get("period1", {}).get("away")
+
+            status = ev.get("status", {}).get("description", "")
+
+            # samo završene utakmice
+            if status.lower() != "ended":
+                continue
+
+            matches.append({
+                "Datum": date_str,
+                "Država": country,
+                "Liga": league,
+                "Home": home,
+                "Away": away,
+                "FT": f"{ft_home}:{ft_away}" if ft_home is not None else "",
+                "HT": f"{ht_home}:{ht_away}" if ht_home is not None else "",
+            })
+
+        except Exception:
             continue
-
-        # meč
-        if lines[i] == "FT":
-            try:
-                time_m = lines[i + 1]
-                home = lines[i + 2]
-                away = lines[i + 3]
-                ft_home = int(lines[i + 4])
-                ft_away = int(lines[i + 5])
-                ht_home = int(lines[i + 6])
-                ht_away = int(lines[i + 7])
-
-                sh_home = ft_home - ht_home
-                sh_away = ft_away - ht_away
-
-                matches.append({
-                    "Datum": date_str,
-                    "Time": time_m,
-                    "Liga": current_league,
-                    "Home": home,
-                    "Away": away,
-                    "FT": f"{ft_home}:{ft_away}",
-                    "HT": f"{ht_home}:{ht_away}",
-                    "SH": f"{sh_home}:{sh_away}",
-                })
-            except:
-                pass
-
-            i += 8
-        else:
-            i += 1
 
     return matches
 
@@ -107,22 +65,24 @@ def main():
     yesterday = datetime.now() - timedelta(days=1)
     date_str = yesterday.strftime("%Y-%m-%d")
 
-    print(f"\n📅 Skidam podatke za: {date_str}")
+    print(f"\n📅 Skidam SofaScore podatke za: {date_str}")
 
-    text = scrape_text(date_str)
-    matches = parse_matches(text, date_str)
+    events = fetch_matches(date_str)
+    print(f"   ➜ ukupno događaja: {len(events)}")
 
-    print(f"   ➜ pronađeno {len(matches)} mečeva")
+    matches = parse_matches(events, date_str)
+
+    print(f"   ➜ završenih mečeva: {len(matches)}")
 
     if not matches:
-        print("❌ Nije pronađen nijedan meč!")
+        print("❌ Nije pronađen nijedan završen meč!")
         return
 
     df = pd.DataFrame(matches)
 
     output_file = os.path.join(
         OUTPUT_DIR,
-        f"mozzart_results_{date_str}.xlsx"
+        f"sofascore_results_{date_str}.xlsx"
     )
 
     df.to_excel(output_file, index=False)
