@@ -3,7 +3,6 @@ import pandas as pd
 import os
 import time
 import random
-from datetime import datetime, timedelta
 
 OUTPUT_DIR = "output"
 
@@ -59,7 +58,6 @@ def parse_matches(text, date_str):
     i = 0
 
     while i < len(lines):
-        # liga
         if not lines[i].isdigit() and "FT" not in lines[i] and ":" not in lines[i]:
             current_league = lines[i]
             i += 1
@@ -67,7 +65,6 @@ def parse_matches(text, date_str):
                 i += 1
             continue
 
-        # meč    
         if lines[i] == "FT":    
             try:    
                 time_m = lines[i + 1]    
@@ -103,9 +100,8 @@ def parse_matches(text, date_str):
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # ✅ UVEK UZIMA JUČERAŠNJI DATUM
-    yesterday = datetime.now() - timedelta(days=1)
-    date_str = yesterday.strftime("%Y-%m-%d")
+    # ✅ FIXIRANI DATUM
+    date_str = "2026-02-09"
 
     print(f"\n📅 Skidam podatke za: {date_str}")
 
