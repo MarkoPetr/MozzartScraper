@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import time
 import random
+from datetime import datetime, timedelta
 
 OUTPUT_DIR = "output"
 
@@ -30,25 +31,25 @@ def scrape_text(date_str):
         page.goto(url, timeout=60000)
         human_sleep(6, 9)
 
-        # cookies popup    
-        try:    
-            page.click("text=Sačuvaj i zatvori", timeout=5000)    
-            human_sleep(2, 4)    
-        except:    
-            pass    
+        # cookies popup
+        try:
+            page.click("text=Sačuvaj i zatvori", timeout=5000)
+            human_sleep(2, 4)
+        except:
+            pass
 
-        # učitaj sve mečeve    
-        while True:    
-            try:    
-                page.evaluate("window.scrollBy(0, 600)")    
-                human_sleep(1, 2)    
-                page.click("text=Učitaj još", timeout=3000)    
-                human_sleep(4, 8)    
-            except:    
-                break    
+        # učitaj sve mečeve
+        while True:
+            try:
+                page.evaluate("window.scrollBy(0, 600)")
+                human_sleep(1, 2)
+                page.click("text=Učitaj još", timeout=3000)
+                human_sleep(4, 8)
+            except:
+                break
 
-        text = page.inner_text("body")    
-        browser.close()    
+        text = page.inner_text("body")
+        browser.close()
         return text
 
 def parse_matches(text, date_str):
@@ -65,34 +66,34 @@ def parse_matches(text, date_str):
                 i += 1
             continue
 
-        if lines[i] == "FT":    
-            try:    
-                time_m = lines[i + 1]    
-                home = lines[i + 2]    
-                away = lines[i + 3]    
-                ft_home = int(lines[i + 4])    
-                ft_away = int(lines[i + 5])    
-                ht_home = int(lines[i + 6])    
-                ht_away = int(lines[i + 7])    
+        if lines[i] == "FT":
+            try:
+                time_m = lines[i + 1]
+                home = lines[i + 2]
+                away = lines[i + 3]
+                ft_home = int(lines[i + 4])
+                ft_away = int(lines[i + 5])
+                ht_home = int(lines[i + 6])
+                ht_away = int(lines[i + 7])
 
-                sh_home = ft_home - ht_home    
-                sh_away = ft_away - ht_away    
+                sh_home = ft_home - ht_home
+                sh_away = ft_away - ht_away
 
-                matches.append({    
-                    "Datum": date_str,    
-                    "Time": time_m,    
-                    "Liga": current_league,    
-                    "Home": home,    
-                    "Away": away,    
-                    "FT": f"{ft_home}:{ft_away}",    
-                    "HT": f"{ht_home}:{ht_away}",    
-                    "SH": f"{sh_home}:{sh_away}",    
-                })    
-            except:    
-                pass    
+                matches.append({
+                    "Datum": date_str,
+                    "Time": time_m,
+                    "Liga": current_league,
+                    "Home": home,
+                    "Away": away,
+                    "FT": f"{ft_home}:{ft_away}",
+                    "HT": f"{ht_home}:{ht_away}",
+                    "SH": f"{sh_home}:{sh_away}",
+                })
+            except:
+                pass
 
-            i += 8    
-        else:    
+            i += 8
+        else:
             i += 1
 
     return matches
@@ -100,8 +101,9 @@ def parse_matches(text, date_str):
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # ✅ FIXIRANI DATUM
-    date_str = "2026-02-21"
+    # ✅ AUTOMATSKI JUČERAŠNJI DATUM
+    yesterday = datetime.now() - timedelta(days=1)
+    date_str = yesterday.strftime("%Y-%m-%d")
 
     print(f"\n📅 Skidam podatke za: {date_str}")
 
