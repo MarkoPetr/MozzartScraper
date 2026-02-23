@@ -101,7 +101,7 @@ def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     # ✅ FIXIRANI DATUM
-    date_str = "2026-02-19"
+    date_str = "2026-02-20"
 
     print(f"\n📅 Skidam podatke za: {date_str}")
 
