@@ -1,11 +1,14 @@
+cat > scrape_mozzart_24_02_2026.py << 'EOF'
 from playwright.sync_api import sync_playwright
 import pandas as pd
 import os
 import time
 import random
-from datetime import datetime, timedelta
 
 OUTPUT_DIR = "output"
+
+# ✅ FIKSIRAN DATUM
+FIXED_DATE = "2026-02-24"
 
 MOBILE_UA = (
     "Mozilla/5.0 (Linux; Android 13; SM-A166B) "
@@ -101,9 +104,7 @@ def parse_matches(text, date_str):
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # ✅ AUTOMATSKI JUČERAŠNJI DATUM
-    yesterday = datetime.now() - timedelta(days=1)
-    date_str = yesterday.strftime("%Y-%m-%d")
+    date_str = FIXED_DATE
 
     print(f"\n📅 Skidam podatke za: {date_str}")
 
@@ -131,3 +132,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+EOF
