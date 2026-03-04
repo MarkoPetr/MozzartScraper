@@ -3,9 +3,11 @@ import pandas as pd
 import os
 import time
 import random
-from datetime import datetime, timedelta
 
 OUTPUT_DIR = "output"
+
+# ✅ FIKSIRAN DATUM
+FIXED_DATE = "2026-03-02"
 
 MOBILE_UA = (
     "Mozilla/5.0 (Linux; Android 13; SM-A166B) "
@@ -18,7 +20,7 @@ def human_sleep(min_sec=5, max_sec=10):
 
 def scrape_text(date_str):
     url = f"https://www.mozzartbet.com/sr/rezultati/Fudbal/1?date={date_str}&events=finished"
-    print(f"🌐 Otvaram: {url}")
+    print(f"Otvaram: {url}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -31,14 +33,12 @@ def scrape_text(date_str):
         page.goto(url, timeout=60000)
         human_sleep(6, 9)
 
-        # cookies popup
         try:
             page.click("text=Sačuvaj i zatvori", timeout=5000)
             human_sleep(2, 4)
         except:
             pass
 
-        # učitaj sve mečeve
         while True:
             try:
                 page.evaluate("window.scrollBy(0, 600)")
@@ -101,19 +101,17 @@ def parse_matches(text, date_str):
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # ✅ AUTOMATSKI JUČERAŠNJI DATUM
-    yesterday = datetime.now() - timedelta(days=1)
-    date_str = yesterday.strftime("%Y-%m-%d")
+    date_str = FIXED_DATE
 
-    print(f"\n📅 Skidam podatke za: {date_str}")
+    print(f"Skidam podatke za: {date_str}")
 
     text = scrape_text(date_str)
     matches = parse_matches(text, date_str)
 
-    print(f"   ➜ pronađeno {len(matches)} mečeva")
+    print(f"Pronađeno {len(matches)} mečeva")
 
     if not matches:
-        print("❌ Nije pronađen nijedan meč!")
+        print("Nije pronađen nijedan meč!")
         return
 
     df = pd.DataFrame(matches)
@@ -125,9 +123,8 @@ def main():
 
     df.to_excel(output_file, index=False)
 
-    print("\n✅ GOTOVO!")
-    print(f"📊 Ukupno mečeva: {len(df)}")
-    print(f"📁 Sačuvano u: {output_file}")
+    print("GOTOVO!")
+    print(f"Sačuvano u: {output_file}")
 
 if __name__ == "__main__":
     main()
