@@ -7,7 +7,7 @@ import random
 OUTPUT_DIR = "output"
 
 # ✅ FIKSIRAN DATUM
-FIXED_DATE = "2026-05-05"
+FIXED_DATE = "2026-05-06"
 
 MOBILE_UA = (
     "Mozilla/5.0 (Linux; Android 13; SM-A166B) "
